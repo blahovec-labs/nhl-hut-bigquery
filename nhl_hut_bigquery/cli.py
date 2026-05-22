@@ -240,8 +240,46 @@ def cmd_docs(ns: argparse.Namespace) -> int:
 
 
 def cmd_verify(ns: argparse.Namespace) -> int:
-    # Implemented in HUT-T10 + HUT-T14
-    raise NotImplementedError("verify — Tasks 10, 14")
+    from nhl_hut_bigquery.verify.snapshot_integrity import (
+        run_cross_snapshot_drift,
+        run_snapshot_integrity,
+    )
+
+    aggregation: str = ns.aggregation
+
+    if aggregation == "snapshot-integrity":
+        if not ns.table:
+            log.error("--table required for snapshot-integrity")
+            return 2
+        result = run_snapshot_integrity(
+            client=bigquery.Client(),
+            table=ns.table,
+            snapshot_date=ns.snapshot_date,
+        )
+
+    elif aggregation == "cross-snapshot-drift":
+        if not ns.table:
+            log.error("--table required for cross-snapshot-drift")
+            return 2
+        result = run_cross_snapshot_drift(
+            client=bigquery.Client(),
+            table=ns.table,
+        )
+
+    elif aggregation == "hut-coverage":
+        # Implemented in HUT-T14
+        raise NotImplementedError("hut-coverage — Task 14")
+
+    else:
+        raise AssertionError(f"unhandled aggregation: {aggregation!r}")
+
+    summary = result.summary()
+    if ns.output == "-":
+        sys.stdout.write(summary + "\n")
+    else:
+        Path(ns.output).write_text(summary + "\n", encoding="utf-8")
+
+    return 0 if result.overall_pass else 1
 
 
 def cmd_resolve_ids(ns: argparse.Namespace) -> int:
