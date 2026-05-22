@@ -267,8 +267,21 @@ def cmd_verify(ns: argparse.Namespace) -> int:
         )
 
     elif aggregation == "hut-coverage":
-        # Implemented in HUT-T14
-        raise NotImplementedError("hut-coverage — Task 14")
+        from nhl_hut_bigquery.verify.hut_coverage import compute_hut_coverage
+
+        if not (ns.xref_table and ns.nhl_boxscore_table and ns.season and ns.snapshot_date):
+            log.error(
+                "--xref-table, --nhl-boxscore-table, --season, --snapshot-date all required"
+            )
+            return 2
+        result = compute_hut_coverage(
+            client=bq,
+            xref_table=ns.xref_table,
+            nhl_boxscore_table=ns.nhl_boxscore_table,
+            season=ns.season,
+            snapshot_date=ns.snapshot_date,
+            threshold=ns.threshold,
+        )
 
     else:
         raise AssertionError(f"unhandled aggregation: {aggregation!r}")
