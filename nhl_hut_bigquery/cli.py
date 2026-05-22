@@ -283,8 +283,54 @@ def cmd_verify(ns: argparse.Namespace) -> int:
 
 
 def cmd_resolve_ids(ns: argparse.Namespace) -> int:
-    # Implemented in HUT-T13
-    raise NotImplementedError("resolve-ids — Task 13")
+    from nhl_hut_bigquery.xref.resolver import build_nhl_player_dim, resolve_all
+
+    bq = bigquery.Client()
+    xref_ref = TableRef.parse(ns.xref_table)
+    hut_ref = TableRef.parse(ns.hut_table)
+    season: int = ns.season or _date.today().year
+
+    # Determine snapshot_date — default to latest in hut_table
+    if ns.snapshot_date:
+        snapshot_date: str = ns.snapshot_date
+    else:
+        sd = list(
+            bq.query(f"SELECT MAX(snapshot_date) AS d FROM `{hut_ref}`").result()
+        )
+        snapshot_date = (
+            sd[0].d.isoformat() if sd and sd[0].d else _date.today().isoformat()
+        )
+
+    if ns.dry_run:
+        log.info("dry-run: would resolve %s snapshot %s", hut_ref, snapshot_date)
+        return 0
+
+    # Load HUT rows for the snapshot
+    hut_sql = f"""
+    SELECT card_id, player_full_name_normalized, team_abbrev, position, nhl_player_id
+    FROM `{hut_ref}` WHERE snapshot_date = DATE '{snapshot_date}'
+    """
+    hut_df = bq.query(hut_sql).to_dataframe()
+
+    # Build NHL player dim for the season from boxscore_stats
+    nhl_dim = build_nhl_player_dim(
+        client=bq,
+        nhl_boxscore_table=ns.nhl_boxscore_table,
+        season=season,
+    )
+
+    # Resolve and write
+    xref_df = resolve_all(
+        hut_df=hut_df,
+        nhl_dim=nhl_dim,
+        snapshot_date=snapshot_date,
+        season=season,
+    )
+    writer = BigQueryWriter(client=bq)
+    writer.write_snapshot(xref_ref, xref_df, snapshot_date=snapshot_date)
+    log.info("wrote %d xref rows for snapshot %s season %d",
+             len(xref_df), snapshot_date, season)
+    return 0
 
 
 # ---------------------------------------------------------------------------
