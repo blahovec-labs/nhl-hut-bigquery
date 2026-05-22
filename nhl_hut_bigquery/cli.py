@@ -8,9 +8,11 @@ to limit the run to one endpoint.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 from datetime import date as _date
+from pathlib import Path
 
 import pandas as pd
 from google.cloud import bigquery
@@ -194,8 +196,47 @@ def cmd_sync(ns: argparse.Namespace) -> int:
 
 
 def cmd_docs(ns: argparse.Namespace) -> int:
-    # Implemented in HUT-T9
-    raise NotImplementedError("docs — Task 9")
+    from nhl_hut_bigquery.docs.renderers import (
+        render_bq_descriptions,
+        render_data_dictionary,
+        render_dbt_yaml,
+        render_llm_context,
+        render_markdown,
+    )
+
+    if ns.format == "bq-apply":
+        if not ns.table:
+            log.error("--table required for bq-apply")
+            return 2
+        ref = TableRef.parse(ns.table)
+        client = bigquery.Client()
+        table_obj = client.get_table(str(ref))
+        table_obj.schema = render_bq_descriptions(table_kind="hut_player_ratings")
+        client.update_table(table_obj, ["schema"])
+        return 0
+
+    if ns.format == "dictionary":
+        if not (ns.dataset and ns.table):
+            log.error("--dataset and --table required for dictionary format")
+            return 2
+        ref = TableRef.parse(ns.table)
+        out = json.dumps(
+            render_data_dictionary(dataset=ns.dataset, table=ref.table), indent=2
+        )
+    elif ns.format == "llm":
+        out = render_llm_context()
+    elif ns.format == "markdown":
+        out = render_markdown()
+    elif ns.format == "dbt":
+        out = render_dbt_yaml()
+    else:
+        raise AssertionError(ns.format)
+
+    if ns.output == "-":
+        sys.stdout.write(out)
+    else:
+        Path(ns.output).write_text(out, encoding="utf-8")
+    return 0
 
 
 def cmd_verify(ns: argparse.Namespace) -> int:
