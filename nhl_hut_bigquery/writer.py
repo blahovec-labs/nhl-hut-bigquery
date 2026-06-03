@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Self
 
 import pandas as pd
 from google.cloud import bigquery
@@ -37,7 +38,7 @@ def _coerce_df_for_bq(
         elif ft in ("TIMESTAMP", "DATETIME"):
             df[col] = pd.to_datetime(df[col], errors="coerce", utc=True)
         elif ft in ("INT64", "INTEGER"):
-            df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")  # pyright: ignore[reportAttributeAccessIssue]
         elif ft in ("FLOAT64", "FLOAT", "NUMERIC"):
             df[col] = pd.to_numeric(df[col], errors="coerce")
         elif ft == "BOOL":
@@ -55,7 +56,7 @@ class TableRef:
         return f"{self.project}.{self.dataset}.{self.table}"
 
     @classmethod
-    def parse(cls, s: str) -> TableRef:
+    def parse(cls, s: str) -> Self:
         parts = s.split(".")
         if len(parts) != 3:
             raise ValueError(f"expected project.dataset.table, got {s!r}")

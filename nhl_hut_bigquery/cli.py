@@ -176,7 +176,7 @@ def cmd_sync(ns: argparse.Namespace) -> int:
             dup = df["card_id"].ne("") & df.duplicated(subset="card_id", keep="first")
             if dup.any():
                 log.info("dropped %d duplicate card_ids", int(dup.sum()))
-                df = df[~dup].reset_index(drop=True)
+                df = pd.DataFrame(df[~dup]).reset_index(drop=True)
         n = writer.write_snapshot(ref, df, snapshot_date=snapshot_date)
 
         runs.record(
