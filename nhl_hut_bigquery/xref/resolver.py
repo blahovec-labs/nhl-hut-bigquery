@@ -18,7 +18,7 @@ pre-built dim DataFrame via a higher-level wrapper without changing downstream c
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pandas as pd
@@ -136,7 +136,7 @@ def resolve_all(
         hut_team_abbrev, hut_position, resolved_nhl_player_id,
         match_method, match_confidence, season, resolved_at.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     out_rows: list[dict[str, Any]] = []
 
     for _, hut in hut_df.iterrows():

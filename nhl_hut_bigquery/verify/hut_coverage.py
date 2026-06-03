@@ -65,7 +65,7 @@ def compute_hut_coverage(
       (SELECT COUNT(*) FROM x)                                          AS hut_cards,
       (SELECT COUNT(*) FROM x WHERE match_method != 'unmatched')        AS resolved,
       (SELECT COUNT(*) FROM x WHERE match_method = 'unmatched')         AS unmatched,
-      (SELECT COUNT(DISTINCT player_id) FROM covered)                   AS distinct_resolved_players,
+      (SELECT COUNT(DISTINCT player_id) FROM covered)                AS distinct_resolved_players,
       (SELECT COUNT(DISTINCT player_id) FROM bs)                        AS distinct_nhl_players,
       (SELECT COALESCE(SUM(toi_seconds), 0) FROM bs)                    AS toi_seconds_total,
       (SELECT COALESCE(SUM(bs.toi_seconds), 0)

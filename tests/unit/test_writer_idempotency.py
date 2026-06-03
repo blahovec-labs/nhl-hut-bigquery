@@ -1,9 +1,8 @@
 # tests/unit/test_writer_idempotency.py
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from unittest.mock import MagicMock
 
 import pandas as pd
-import pytest
 from google.cloud import bigquery
 
 from nhl_hut_bigquery.writer import BigQueryWriter, TableRef, _coerce_df_for_bq
@@ -45,10 +44,10 @@ def test_coerce_df_casts_string_date_nullable_int_and_timestamp():
     ]
     df = pd.DataFrame([
         {"snapshot_date": "2026-06-02", "overall": 84,
-         "ingested_at": datetime(2026, 6, 2, tzinfo=timezone.utc),
+         "ingested_at": datetime(2026, 6, 2, tzinfo=UTC),
          "player_full_name": "TROY TERRY"},
         {"snapshot_date": "2026-06-02", "overall": None,
-         "ingested_at": datetime(2026, 6, 2, tzinfo=timezone.utc),
+         "ingested_at": datetime(2026, 6, 2, tzinfo=UTC),
          "player_full_name": None},
     ])
     out = _coerce_df_for_bq(df, schema)

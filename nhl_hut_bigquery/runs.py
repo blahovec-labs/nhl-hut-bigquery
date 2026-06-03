@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import ClassVar
 
 from google.cloud import bigquery
@@ -67,7 +67,7 @@ class RunsTable:
             "cards_seen": cards_seen,
             "endpoint_used": endpoint_used,
             "error": error,
-            "run_at": datetime.now(timezone.utc).isoformat(),
+            "run_at": datetime.now(UTC).isoformat(),
         }
         errors = self.client.insert_rows_json(str(ref), [row])
         if errors:

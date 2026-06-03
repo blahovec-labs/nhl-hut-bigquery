@@ -289,7 +289,7 @@ def cmd_verify(ns: argparse.Namespace) -> int:
             )
             return 2
         result = compute_hut_coverage(
-            client=bq,
+            client=bigquery.Client(),
             xref_table=ns.xref_table,
             nhl_boxscore_table=ns.nhl_boxscore_table,
             season=ns.season,

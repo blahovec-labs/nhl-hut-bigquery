@@ -8,7 +8,7 @@ Both are collapsed into a single unified row shape per HUT_RATINGS_SCHEMA.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from unidecode import unidecode
@@ -217,7 +217,7 @@ def parse_card(
         # Snapshot identity
         "snapshot_date": snapshot_date,
         "card_id": card_id,
-        "ingested_at": datetime.now(timezone.utc),
+        "ingested_at": datetime.now(UTC),
         # Player identity
         "player_full_name": player_full_name,
         "player_full_name_normalized": normalize_name(player_full_name),

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from google.cloud import bigquery
@@ -72,7 +72,7 @@ def render_markdown() -> str:
 
 
 def render_data_dictionary(*, dataset: str, table: str) -> list[dict[str, Any]]:
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     return [
         {
             "dataset": dataset,

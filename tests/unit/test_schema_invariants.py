@@ -1,7 +1,11 @@
 import pytest
 
-from nhl_hut_bigquery.schema import BqMode, BqType, ColumnSpec, PartitioningSpec
-from nhl_hut_bigquery.schema import HUT_RATINGS_SCHEMA, get_partitioning
+from nhl_hut_bigquery.schema import (
+    HUT_RATINGS_SCHEMA,
+    ColumnSpec,
+    PartitioningSpec,
+    get_partitioning,
+)
 
 
 def test_columnspec_validates_required_business_definition():

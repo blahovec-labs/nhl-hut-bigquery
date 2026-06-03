@@ -23,6 +23,10 @@ cards (5,828 skaters + 667 goalies) and resolving 59.6% to NHL player_ids via
   checks real rating columns.
 - **`sync` drops duplicate `card_id`s** (the site occasionally serves a card on
   two pages), keeping `(snapshot_date, card_id)` unique.
+- **`verify --aggregation hut-coverage` no longer crashes** — the branch
+  referenced an undefined `bq`; it now constructs its own client like the others.
+- Added GitHub Actions CI: `test` (ruff + pyright + pytest on 3.11–3.13) and
+  `release` (build + PyPI publish via Trusted Publishing / OIDC — no API token).
 
 ## 0.1.0
 
