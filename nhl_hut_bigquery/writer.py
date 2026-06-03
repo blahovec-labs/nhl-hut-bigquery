@@ -11,6 +11,40 @@ from google.cloud import bigquery
 log = logging.getLogger(__name__)
 
 
+def _coerce_df_for_bq(
+    df: pd.DataFrame, schema: list[bigquery.SchemaField]
+) -> pd.DataFrame:
+    """Coerce DataFrame column dtypes to what load_table_from_dataframe accepts.
+
+    The HUT parser emits snapshot_date/date_added/date_updated as strings and
+    nullable ratings as float64 (int+None). The pyarrow-backed BQ load cannot
+    convert an object/string column into a DATE column, so coerce by schema:
+      DATE      -> datetime.date (NaT for nulls)
+      TIMESTAMP -> tz-aware datetime64
+      INT64     -> pandas nullable Int64
+      FLOAT64   -> numeric
+    STRING columns are left as-is.
+    """
+    df = df.copy()
+    by_name = {f.name: f for f in schema}
+    for col in df.columns:
+        field = by_name.get(col)
+        if field is None:
+            continue
+        ft = field.field_type.upper()
+        if ft == "DATE":
+            df[col] = pd.to_datetime(df[col], errors="coerce").dt.date
+        elif ft in ("TIMESTAMP", "DATETIME"):
+            df[col] = pd.to_datetime(df[col], errors="coerce", utc=True)
+        elif ft in ("INT64", "INTEGER"):
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
+        elif ft in ("FLOAT64", "FLOAT", "NUMERIC"):
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+        elif ft == "BOOL":
+            df[col] = df[col].astype("boolean")
+    return df
+
+
 @dataclass(frozen=True)
 class TableRef:
     project: str
@@ -67,6 +101,13 @@ class BigQueryWriter:
             log.info("write_snapshot: empty df, skipping")
             return 0
 
+        # Fetch the destination schema so we can coerce column dtypes (notably
+        # string snapshot_date -> DATE) before the pyarrow-backed load.
+        try:
+            bq_schema = list(self.client.get_table(str(ref)).schema)
+        except Exception:
+            bq_schema = []
+
         delete_sql = f"DELETE FROM `{ref}` WHERE snapshot_date = @d"
         self.client.query(
             delete_sql,
@@ -77,11 +118,15 @@ class BigQueryWriter:
             ),
         ).result()
 
+        if bq_schema:
+            df = _coerce_df_for_bq(df, bq_schema)
+
         load = self.client.load_table_from_dataframe(
             df,
             str(ref),
             job_config=bigquery.LoadJobConfig(
                 write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+                schema=bq_schema or None,
             ),
         )
         load.result()

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import ClassVar
 
 from google.cloud import bigquery
 
@@ -21,21 +22,20 @@ class RunsTableRef(TableRef):
 class RunsTable:
     client: bigquery.Client
 
-    SCHEMA: list[bigquery.SchemaField] = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        # Define schema here to avoid mutable class-level default
-        if RunsTable.SCHEMA is None:
-            RunsTable.SCHEMA = [
-                bigquery.SchemaField("snapshot_date", "DATE", mode="REQUIRED"),
-                bigquery.SchemaField("run_type", "STRING", mode="REQUIRED"),
-                bigquery.SchemaField("status", "STRING", mode="REQUIRED"),
-                bigquery.SchemaField("rows_written", "INT64", mode="NULLABLE"),
-                bigquery.SchemaField("cards_seen", "INT64", mode="NULLABLE"),
-                bigquery.SchemaField("endpoint_used", "STRING", mode="NULLABLE"),
-                bigquery.SchemaField("error", "STRING", mode="NULLABLE"),
-                bigquery.SchemaField("run_at", "TIMESTAMP", mode="REQUIRED"),
-            ]
+    # MUST be a ClassVar, not a dataclass field. As a field with default None,
+    # __init__ set self.SCHEMA = None (shadowing the class attr that the old
+    # __post_init__ populated), so create_table built a SCHEMALESS table and
+    # every insert_rows_json failed with "destination table has no schema".
+    SCHEMA: ClassVar[list[bigquery.SchemaField]] = [
+        bigquery.SchemaField("snapshot_date", "DATE", mode="REQUIRED"),
+        bigquery.SchemaField("run_type", "STRING", mode="REQUIRED"),
+        bigquery.SchemaField("status", "STRING", mode="REQUIRED"),
+        bigquery.SchemaField("rows_written", "INT64", mode="NULLABLE"),
+        bigquery.SchemaField("cards_seen", "INT64", mode="NULLABLE"),
+        bigquery.SchemaField("endpoint_used", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("error", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("run_at", "TIMESTAMP", mode="REQUIRED"),
+    ]
 
     def create_table_if_missing(self, ref: RunsTableRef) -> None:
         try:

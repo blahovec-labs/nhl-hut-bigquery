@@ -151,10 +151,16 @@ def cmd_sync(ns: argparse.Namespace) -> int:
 
     try:
         for url in endpoints:
+            # The goalie endpoint omits the position field; tag rows by endpoint
+            # so parse_card populates goalie ratings and namespaces goalie ids.
+            force_position = "G" if url == _GOALIE_URL else None
             scraper = HUTScraper(url=url)
             for card in scraper.iter_all_cards():
                 total_seen += 1
-                row = parse_card(card, snapshot_date=snapshot_date, source_url=url)
+                row = parse_card(
+                    card, snapshot_date=snapshot_date, source_url=url,
+                    force_position=force_position,
+                )
                 all_rows.append(row)
             endpoints_used.append(url)
             log.info("scraped %d cards so far (endpoint: %s)", total_seen, url)
@@ -163,6 +169,14 @@ def cmd_sync(ns: argparse.Namespace) -> int:
         check_payload_size(card_count=total_seen)
 
         df = pd.DataFrame(all_rows)
+        # The site occasionally serves the same card on two pages; drop later
+        # duplicates so (snapshot_date, card_id) stays a true key. Preserve rows
+        # whose card_id failed to parse (empty) rather than collapsing them.
+        if not df.empty and "card_id" in df.columns:
+            dup = df["card_id"].ne("") & df.duplicated(subset="card_id", keep="first")
+            if dup.any():
+                log.info("dropped %d duplicate card_ids", int(dup.sum()))
+                df = df[~dup].reset_index(drop=True)
         n = writer.write_snapshot(ref, df, snapshot_date=snapshot_date)
 
         runs.record(

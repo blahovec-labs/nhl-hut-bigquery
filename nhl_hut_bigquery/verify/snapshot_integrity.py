@@ -43,17 +43,18 @@ def run_snapshot_integrity(
             "ratings_in_range",
             f"""
             WITH ratings AS (
-              SELECT shooting, skating, defense, physicality,
+              SELECT speed, slap_shot_power, puck_control, def_awareness, body_checking,
                      glove_high, glove_low, stick_high, stick_low,
                      five_hole, rebound_control
               FROM `{table}` WHERE 1=1 {where}
             )
             SELECT
               SUM(IF(
-                (shooting IS NOT NULL AND shooting NOT BETWEEN 0 AND 99)
-                OR (skating IS NOT NULL AND skating NOT BETWEEN 0 AND 99)
-                OR (defense IS NOT NULL AND defense NOT BETWEEN 0 AND 99)
-                OR (physicality IS NOT NULL AND physicality NOT BETWEEN 0 AND 99)
+                (speed IS NOT NULL AND speed NOT BETWEEN 0 AND 99)
+                OR (slap_shot_power IS NOT NULL AND slap_shot_power NOT BETWEEN 0 AND 99)
+                OR (puck_control IS NOT NULL AND puck_control NOT BETWEEN 0 AND 99)
+                OR (def_awareness IS NOT NULL AND def_awareness NOT BETWEEN 0 AND 99)
+                OR (body_checking IS NOT NULL AND body_checking NOT BETWEEN 0 AND 99)
                 OR (glove_high IS NOT NULL AND glove_high NOT BETWEEN 0 AND 99)
                 OR (glove_low IS NOT NULL AND glove_low NOT BETWEEN 0 AND 99)
                 OR (stick_high IS NOT NULL AND stick_high NOT BETWEEN 0 AND 99)

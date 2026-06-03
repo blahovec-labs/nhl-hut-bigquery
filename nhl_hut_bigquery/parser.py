@@ -174,10 +174,15 @@ def parse_card(
     *,
     snapshot_date: str,
     source_url: str,
+    force_position: str | None = None,
 ) -> dict[str, Any]:
     """Convert one raw HUT card dict into a schema-aligned row dict.
 
     Always returns all schema columns; absent or unparseable values become None.
+
+    The goalie endpoint (goalie_stats.php) does NOT return a ``position`` field,
+    so callers scraping it must pass ``force_position="G"``. Otherwise the row is
+    mis-detected as a skater and all 11 goalie-only ratings are nulled.
 
     Priority for card_id:
       1. Parse id= attribute from raw["card_art"] HTML
@@ -185,14 +190,24 @@ def parse_card(
       3. raw["id"]
       4. raw["unique_id"]
       5. Empty string (caller may flag for diagnostics)
+
+    Goalie card_ids are namespaced with a ``"G"`` prefix: the skater and goalie
+    endpoints each number their rows independently (both start near 1000), so a
+    bare id collides across endpoints and breaks the (snapshot_date, card_id) key.
     """
-    is_goalie = str(raw.get("position", "")).strip().upper() == "G"
+    # The goalie endpoint omits `position`; force_position lets the caller tag
+    # goalie rows by endpoint. Fall back to the raw card's value for skaters.
+    position = force_position if force_position is not None else raw.get("position")
+    is_goalie = str(position or "").strip().upper() == "G"
 
     # --- card_id -------------------------------------------------------
     card_id = (
         _parse_card_id_from_html(raw.get("card_art"))
         or str(raw.get("card_id") or raw.get("id") or raw.get("unique_id") or "")
     )
+    # Namespace goalie ids to avoid cross-endpoint collisions with skater ids.
+    if is_goalie and card_id:
+        card_id = f"G{card_id}"
 
     # --- player_full_name (HTML-stripped) --------------------------------
     name_raw = raw.get("full_name") or raw.get("player_name")
@@ -207,7 +222,7 @@ def parse_card(
         "player_full_name": player_full_name,
         "player_full_name_normalized": normalize_name(player_full_name),
         "nhl_player_id": _to_int(raw.get("nhl_player_id")),
-        "position": raw.get("position"),
+        "position": position,
         "team_abbrev": raw.get("team") or raw.get("team_abbrev"),
         "nationality": raw.get("nationality") or raw.get("country"),
         # Card metadata

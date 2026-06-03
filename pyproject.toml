@@ -1,6 +1,6 @@
 [project]
 name = "nhl-hut-bigquery"
-version = "0.1.0"
+version = "0.1.1"
 description = "EA NHL HUT player ratings → BigQuery snapshots + cross-source resolver to nhl-bigquery"
 readme = "README.md"
 license = { text = "MIT" }
