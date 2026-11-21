@@ -9,6 +9,8 @@ from typing import Self
 import pandas as pd
 from google.cloud import bigquery
 
+from nhl_hut_bigquery._atomic import atomic_replace
+
 log = logging.getLogger(__name__)
 
 
@@ -93,45 +95,29 @@ class BigQueryWriter:
         *,
         snapshot_date: str,
     ) -> int:
-        """Delete existing rows for snapshot_date, then insert df. Returns row count.
+        """Replace the rows for snapshot_date with df, atomically. Returns row count.
 
-        Uses a parameterized DATE binding — not string interpolation — for the DELETE.
-        Returns 0 and skips the load call when df is empty.
+        Stages df, then DELETE + INSERT in one transaction (see _atomic.py), so a
+        failed load leaves the existing snapshot untouched. Uses a parameterized
+        DATE binding, not string interpolation, for the DELETE. Returns 0 and
+        writes nothing when df is empty. The table must already exist.
         """
         if df.empty:
             log.info("write_snapshot: empty df, skipping")
             return 0
 
-        # Fetch the destination schema so we can coerce column dtypes (notably
-        # string snapshot_date -> DATE) before the pyarrow-backed load.
-        try:
-            bq_schema = list(self.client.get_table(str(ref)).schema)
-        except Exception:
-            bq_schema = []
-
-        delete_sql = f"DELETE FROM `{ref}` WHERE snapshot_date = @d"
-        self.client.query(
-            delete_sql,
-            job_config=bigquery.QueryJobConfig(
-                query_parameters=[
-                    bigquery.ScalarQueryParameter("d", "DATE", snapshot_date),
-                ],
-            ),
-        ).result()
-
-        if bq_schema:
-            df = _coerce_df_for_bq(df, bq_schema)
-
-        load = self.client.load_table_from_dataframe(
-            df,
+        # The destination schema drives both dtype coercion (notably string
+        # snapshot_date -> DATE) and the staging table / INSERT column list.
+        bq_schema = list(self.client.get_table(str(ref)).schema)
+        if not bq_schema:
+            raise ValueError(f"{ref} has no schema; apply its DDL first")
+        n = atomic_replace(
+            self.client,
             str(ref),
-            job_config=bigquery.LoadJobConfig(
-                write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
-                schema=bq_schema or None,
-            ),
+            _coerce_df_for_bq(df, bq_schema),
+            bq_schema,
+            "snapshot_date = @d",
+            [bigquery.ScalarQueryParameter("d", "DATE", snapshot_date)],
         )
-        load.result()
-        log.info(
-            "inserted %d rows into %s for snapshot %s", len(df), ref, snapshot_date
-        )
-        return len(df)
+        log.info("replaced snapshot %s in %s with %d rows", snapshot_date, ref, n)
+        return n

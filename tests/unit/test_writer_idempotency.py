@@ -15,11 +15,14 @@ def test_tableref_parse():
 
 def test_write_snapshot_replaces_for_snapshot_date():
     client = MagicMock()
+    client.get_table.return_value = bigquery.Table(
+        "p.d.hut", schema=[bigquery.SchemaField("snapshot_date", "DATE"),
+                           bigquery.SchemaField("card_id", "STRING")])
     writer = BigQueryWriter(client=client)
     ref = TableRef("p", "d", "hut")
     df = pd.DataFrame([{"snapshot_date": "2026-05-22", "card_id": "x1"}])
     writer.write_snapshot(ref, df, snapshot_date="2026-05-22")
-    assert client.query.called  # DELETE issued
+    assert "DELETE" in client.query_and_wait.call_args.args[0]  # replace issued
     assert client.load_table_from_dataframe.called  # INSERT
 
 

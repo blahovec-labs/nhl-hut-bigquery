@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.2
+
+Snapshot writes are now atomic. `write_snapshot` ran `DELETE ... WHERE snapshot_date = @d`
+as its own query and then a separate load job; a load job can't join a transaction, so a
+failed load left that day's cards (or xref rows) deleted. It now loads into a short-lived
+`_staging_*` table (6-hour expiry backstop), then `DELETE` + `INSERT ... SELECT` in one
+multi-statement transaction, then drops the staging table. A failed load deletes nothing; a
+failed swap rolls back. Idempotency and the empty-frame no-op are unchanged. Same fix as
+statcast-bigquery 0.5.1, whose non-atomic writer wiped 2026-06-02.
+
 ## 0.1.1
 
 First end-to-end run against real BigQuery surfaced (and fixed) six latent bugs;
